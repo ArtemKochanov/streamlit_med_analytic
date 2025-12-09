@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 from analyzer import get_reference_range, evaluate_indicator
 
@@ -61,3 +62,74 @@ if uploaded:
             ax.grid(True)
 
             st.pyplot(fig)
+
+        # ---- Интерактивный анализ по выбранным пациентам ----
+    st.subheader("Интерактивный анализ динамики показателей")
+
+    indicator = st.selectbox(
+        "Выберите показатель",
+        ["RBC", "WBC", "PLT", "HGB", "HTC", "MCV", "MCH"]
+    )
+
+    selected_patients = st.multiselect(
+        "Выберите пациентов (одного или нескольких)",
+        df["patient_id"].unique(),
+        default=df["patient_id"].unique()[:1]
+    )
+
+    if selected_patients:
+        import plotly.express as px
+
+        plot_df = df[[
+            "patient_id",
+            f"{indicator}_before",
+            f"{indicator}_after"
+        ]].copy()
+
+        plot_df.columns = [
+            "PatientID",
+            "До лечения",
+            "После лечения"
+        ]
+
+        plot_df = plot_df.melt(
+            id_vars="PatientID",
+            var_name="Этап",
+            value_name="Значение"
+        )
+
+        plot_df["Группа"] = plot_df["PatientID"].apply(
+            lambda x: "Выбранные пациенты" if x in selected_patients else "Другие пациенты"
+        )
+
+        fig = px.line(
+            plot_df,
+            x="Этап",
+            y="Значение",
+            line_group="PatientID",
+            color="Группа",
+            hover_data=["PatientID"]
+        )
+
+        fig.update_traces(
+            opacity=0.2,
+            selector=dict(name="Другие пациенты")
+        )
+
+        fig.update_traces(
+            opacity=1,
+            line=dict(width=4),
+            selector=dict(name="Выбранные пациенты")
+        )
+
+        fig.update_layout(
+            xaxis_title="Этап лечения",
+            yaxis_title=indicator,
+            legend_title=""
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Выберите хотя бы одного пациента для отображения графика.")
+
+
