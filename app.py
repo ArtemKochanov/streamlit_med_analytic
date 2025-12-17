@@ -108,11 +108,16 @@ if uploaded:
             y="Значение",
             line_group="PatientID",
             color="Группа",
-            hover_data=["PatientID"]
+            hover_data=["PatientID"],
+            color_discrete_map={
+                "Выбранные пациенты": "#ff4a4a",   # красный
+                "Другие пациенты": "#838181"       # серый
+            }
         )
 
         fig.update_traces(
             opacity=0.2,
+            
             selector=dict(name="Другие пациенты")
         )
 
