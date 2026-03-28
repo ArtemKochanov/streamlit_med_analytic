@@ -26,6 +26,8 @@ if uploaded:
         sex = row["gender"]
 
         patient_result = {"ID": row["patient_id"]}
+        improved = 0
+        worsened = 0
 
         for indicator in ["RBC", "WBC", "PLT", "HGB", "HTC", "MCV", "MCH"]:
             ref = get_reference_range(indicator, age, sex)
@@ -37,6 +39,17 @@ if uploaded:
                     rmin, rmax
                 )
                 patient_result[indicator] = status
+
+                if status == "улучшение":
+                    improved += 1
+                elif status == "ухудшение":
+                    worsened += 1
+
+        # Итоговая оценка эффективности
+        if improved >= 2:
+            patient_result["Эффективность лечения"] = "Да"
+        else:
+            patient_result["Эффективность лечения"] = "Нет"
 
         results.append(patient_result)
 

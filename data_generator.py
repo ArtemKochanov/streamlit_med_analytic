@@ -130,27 +130,6 @@ def generate_patient_record(i):
     # PLT: небольшой разброс, пусть снижение/увеличение случайно
     plt_a = apply_change(plt_b, better_if_increase=False, improvement_prob=improvement_prob, max_rel_change=0.15)
 
-    # Простое итоговое поле treatment_effective: считаем, что улучшение если >=3 показателя перешли ближе к норме
-    # Зададим простую эвристику: сравним количество показателей, которые изменились в "лучшую" сторону
-    improved_count = 0
-    for before, after, better_if_inc in [
-        (rbc_b, rbc_a, True),
-        (hgb_b, hgb_a, True),
-        (htc_b, htc_a, True),
-        (mcv_b, mcv_a, True),
-        (mch_b, mch_a, True),
-        (wbc_b, wbc_a, False),
-        (plt_b, plt_a, False),
-    ]:
-        if better_if_inc:
-            if after > before * 1.01:  # >1% improvement
-                improved_count += 1
-        else:
-            if after < before * 0.99:
-                improved_count += 1
-
-    treatment_effective = "Да" if improved_count >= 3 else "Нет"
-
     return {
         "patient_id": i,
         "age": age,
@@ -169,8 +148,7 @@ def generate_patient_record(i):
         "MCV_before": mcv_b,
         "MCV_after": mcv_a,
         "MCH_before": mch_b,
-        "MCH_after": mch_a,
-        "treatment_effective": treatment_effective
+        "MCH_after": mch_a
     }
 
 def generate_dataset(n=200):
