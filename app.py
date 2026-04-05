@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 from statistics_module import calculate_treatment_statistics
 from prediction_module import predict_next_value
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import io
+from datetime import datetime
 
 from analyzer import get_reference_range, evaluate_indicator
 
@@ -46,7 +54,7 @@ if uploaded:
                     worsened += 1
 
         # Итоговая оценка эффективности
-        if improved >= 2:
+        if improved >= 3:
             patient_result["Эффективность лечения"] = "Да"
         else:
             patient_result["Эффективность лечения"] = "Нет"
@@ -76,6 +84,118 @@ if uploaded:
         names=counts.index,
         values=counts.values,
         title="Распределение результатов анализа"
+    )
+
+    pdfmetrics.registerFont(TTFont("DejaVu", "DejaVuSans.ttf"))
+
+    def generate_pdf_report(results_df, stats):
+        buffer = io.BytesIO()
+
+        # Горизонтальный PDF
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+
+        styles = getSampleStyleSheet()
+        for style_name in styles.byName:
+            styles[style_name].fontName = "DejaVu"
+
+        # ✅ Подключаем нормальный шрифт (чтобы НЕ БЫЛО КВАДРАТОВ)
+        pdfmetrics.registerFont(TTFont("DejaVu", "DejaVuSans.ttf"))
+
+        elements = []
+
+        # ===== Заголовок =====
+        elements.append(Paragraph(
+            "Система анализа медицинских данных",
+            styles["Title"]
+        ))
+
+        elements.append(Spacer(1, 10))
+
+        elements.append(Paragraph(
+            "Отчет по анализу эффективности лечения (ОАК)",
+            styles["Heading2"]
+        ))
+
+        elements.append(Spacer(1, 10))
+
+        elements.append(Paragraph(
+            f"Дата формирования: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            styles["Normal"]
+        ))
+
+        elements.append(Spacer(1, 20))
+
+        # ===== Статистика =====
+        elements.append(Paragraph("Общая статистика", styles["Heading2"]))
+        elements.append(Spacer(1, 10))
+
+        elements.append(Paragraph(f"Всего пациентов: {stats['total_patients']}", styles["Normal"]))
+        elements.append(Paragraph(f"Улучшения: {stats['improvements']}", styles["Normal"]))
+        elements.append(Paragraph(f"Ухудшения: {stats['worsenings']}", styles["Normal"]))
+
+        elements.append(Spacer(1, 20))
+
+        # ===== Таблица =====
+        elements.append(Paragraph("Результаты анализа пациентов", styles["Heading2"]))
+        elements.append(Spacer(1, 10))
+
+        table_data = [results_df.columns.tolist()] + results_df.values.tolist()
+
+        table = Table(table_data, repeatRows=1)
+
+        table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), "DejaVu"),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ]))
+
+        # ===== Цвета ячеек =====
+        for i, row in enumerate(table_data[1:], start=1):
+            for j, cell in enumerate(row):
+                if cell == "улучшение":
+                    table.setStyle([("BACKGROUND", (j, i), (j, i), colors.lightgreen)])
+                elif cell == "ухудшение":
+                    table.setStyle([("BACKGROUND", (j, i), (j, i), colors.pink)])
+                elif cell == "в норме (стабильно)":
+                    table.setStyle([("BACKGROUND", (j, i), (j, i), colors.lightgrey)])
+
+        elements.append(table)
+
+        elements.append(Spacer(1, 20))
+
+        # ===== Итоговый вывод =====
+        elements.append(Paragraph("Заключение системы", styles["Heading2"]))
+        elements.append(Spacer(1, 10))
+
+        if stats["improvements"] > stats["worsenings"]:
+            conclusion = "В целом наблюдается положительная динамика лечения пациентов."
+        else:
+            conclusion = "Эффективность лечения недостаточна, требуется корректировка терапии."
+
+        elements.append(Paragraph(conclusion, styles["Normal"]))
+
+        elements.append(Spacer(1, 30))
+
+        # ===== Подпись =====
+        elements.append(Paragraph("Ответственный специалист: ____________________", styles["Normal"]))
+        elements.append(Paragraph("Подпись: ____________________", styles["Normal"]))
+
+        # ===== Сборка =====
+        doc.build(elements)
+
+        buffer.seek(0)
+        return buffer
+    
+    pdf_file = generate_pdf_report(results_df, stats)
+
+    st.download_button(
+        label="Скачать PDF-отчет",
+        data=pdf_file,
+        file_name="medical_report.pdf",
+        mime="application/pdf"
     )
 
     st.plotly_chart(fig)
